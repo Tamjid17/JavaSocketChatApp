@@ -3,6 +3,8 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 public class ChatClientGUI extends JFrame {
     private JTextArea messageArea;
@@ -12,7 +14,10 @@ public class ChatClientGUI extends JFrame {
     public ChatClientGUI() {
         super("Chat Application");
         setSize(400, 500);
-        setDefaultCloseOperation(EXIT_ON_CLOSE);
+        setDefaultCloseOperation(HIDE_ON_CLOSE);
+
+        String name = JOptionPane.showInputDialog(this, "Enter your name: ", "User Name", JOptionPane.PLAIN_MESSAGE);
+        this.setTitle(name + "'s Chat Window");
 
         messageArea = new JTextArea();
         messageArea.setEditable(false);
@@ -20,8 +25,10 @@ public class ChatClientGUI extends JFrame {
 
         textField = new JTextField();
         textField.addActionListener(new ActionListener() {
+
             public void actionPerformed(ActionEvent e) {
-                client.sendMessage(textField.getText());
+                String message = "[" + new SimpleDateFormat("HH:mm:ss").format(new Date()) + "] " + name + ": " + textField.getText();
+                client.sendMessage(message);
                 textField.setText("");
             }
         });
