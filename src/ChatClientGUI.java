@@ -1,4 +1,8 @@
 import javax.swing.*;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.Style;
+import javax.swing.text.StyleConstants;
+import javax.swing.text.StyledDocument;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -7,11 +11,12 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 public class ChatClientGUI extends JFrame {
-    private JTextArea messageArea;
+    private JTextPane messagePane;
     private JTextField textField;
     private ChatClient client;
     private JButton exitButton;
-
+    private JButton sendButton;
+    private SimpleDateFormat dateFormat = new SimpleDateFormat("HH:mm:ss");
     public ChatClientGUI() {
         super("Chat Application");
         setSize(400, 500);
@@ -26,13 +31,13 @@ public class ChatClientGUI extends JFrame {
         String name = JOptionPane.showInputDialog(this, "Enter your name: ", "User Name", JOptionPane.PLAIN_MESSAGE);
         this.setTitle(name + "'s Chat Window");
 
-        messageArea = new JTextArea();
-        messageArea.setEditable(false);
-        messageArea.setBackground(backgroundColor);
-        messageArea.setForeground(textColor);
-        messageArea.setFont(textFont);
+        messagePane = new JTextPane();
+        messagePane.setEditable(false);
+        messagePane.setBackground(backgroundColor);
+        messagePane.setForeground(textColor);
+        messagePane.setFont(textFont);
 
-        JScrollPane scrollPane = new JScrollPane(messageArea);
+        JScrollPane scrollPane = new JScrollPane(messagePane);
         add(scrollPane, BorderLayout.CENTER);
 
         exitButton = new JButton("Exit");
@@ -50,22 +55,27 @@ public class ChatClientGUI extends JFrame {
             System.exit(0);
         });
 
+        sendButton = new JButton("Send");
+        sendButton.setFont(buttonFont);
+        sendButton.setBackground(buttonColor);
+        sendButton.setForeground(Color.WHITE);
+        sendButton.addActionListener(e -> sendMessage(name));
+
         JPanel bottomPanel = new JPanel(new BorderLayout());
         bottomPanel.setBackground(backgroundColor);
         textField = new JTextField();
         textField.setFont(textFont);
         textField.setForeground(textColor);
         textField.setBackground(backgroundColor);
-        textField.addActionListener(new ActionListener() {
+        textField.addActionListener(e -> sendMessage(name)); // Also handle send on enter key
 
-            public void actionPerformed(ActionEvent e) {
-                String message = "[" + new SimpleDateFormat("HH:mm:ss").format(new Date()) + "] " + name + ": " + textField.getText();
-                client.sendMessage(message);
-                textField.setText("");
-            }
-        });
+        // Adding components to bottom panel
         bottomPanel.add(textField, BorderLayout.CENTER);
-        bottomPanel.add(exitButton, BorderLayout.EAST);
+        JPanel buttonPanel = new JPanel(new GridLayout(1, 2));
+        buttonPanel.add(sendButton);
+        buttonPanel.add(exitButton);
+        bottomPanel.add(buttonPanel, BorderLayout.EAST);
+
         add(bottomPanel, BorderLayout.SOUTH);
 
         try {
@@ -79,7 +89,27 @@ public class ChatClientGUI extends JFrame {
         }
     }
     private void onMessageReceived(String message) {
-        SwingUtilities.invokeLater(() -> messageArea.append(message + "\n"));
+        SwingUtilities.invokeLater(() -> appendMessage(message, Color.LIGHT_GRAY));
+    }
+    private void sendMessage(String name) {
+        String message = "[" + new SimpleDateFormat("HH:mm:ss").format(new Date()) + "] " + name + ": " + textField.getText();
+        client.sendMessage(message);
+        textField.setText("");
+    }
+
+    private void appendMessage(String message, Color backgroundColor) {
+        try {
+            StyledDocument doc = messagePane.getStyledDocument();
+            Style style = messagePane.addStyle("MessageStyle", null);
+            StyleConstants.setBackground(style, backgroundColor);
+            StyleConstants.setForeground(style, Color.BLACK); // Message text color
+            StyleConstants.setFontFamily(style, "Arial");
+            StyleConstants.setFontSize(style, 14);
+            doc.insertString(doc.getLength(), message + "\n", style);
+            messagePane.setCaretPosition(doc.getLength()); // Scroll to the end
+        } catch (BadLocationException e) {
+            e.printStackTrace();
+        }
     }
 
     public static void main(String[] args) {
