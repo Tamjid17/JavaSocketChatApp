@@ -10,20 +10,52 @@ public class ChatClientGUI extends JFrame {
     private JTextArea messageArea;
     private JTextField textField;
     private ChatClient client;
+    private JButton exitButton;
 
     public ChatClientGUI() {
         super("Chat Application");
         setSize(400, 500);
-        setDefaultCloseOperation(HIDE_ON_CLOSE);
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
+
+        Color backgroundColor = new Color(240, 240, 240);
+        Color buttonColor = new Color(75, 75, 75);
+        Color textColor = new Color(50, 50, 50);
+        Font textFont = new Font("Arial", Font.PLAIN, 14);
+        Font buttonFont = new Font("Arial", Font.BOLD, 12);
 
         String name = JOptionPane.showInputDialog(this, "Enter your name: ", "User Name", JOptionPane.PLAIN_MESSAGE);
         this.setTitle(name + "'s Chat Window");
 
         messageArea = new JTextArea();
         messageArea.setEditable(false);
-        add(new JScrollPane(messageArea), BorderLayout.CENTER);
+        messageArea.setBackground(backgroundColor);
+        messageArea.setForeground(textColor);
+        messageArea.setFont(textFont);
 
+        JScrollPane scrollPane = new JScrollPane(messageArea);
+        add(scrollPane, BorderLayout.CENTER);
+
+        exitButton = new JButton("Exit");
+        exitButton.setFont(buttonFont);
+        exitButton.setBackground(buttonColor);
+        exitButton.setForeground(Color.WHITE);
+        exitButton.addActionListener(e -> {
+            String exitMessage = name + " has left the chat";
+            client.sendMessage(exitMessage);
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+            }
+            System.exit(0);
+        });
+
+        JPanel bottomPanel = new JPanel(new BorderLayout());
+        bottomPanel.setBackground(backgroundColor);
         textField = new JTextField();
+        textField.setFont(textFont);
+        textField.setForeground(textColor);
+        textField.setBackground(backgroundColor);
         textField.addActionListener(new ActionListener() {
 
             public void actionPerformed(ActionEvent e) {
@@ -32,7 +64,9 @@ public class ChatClientGUI extends JFrame {
                 textField.setText("");
             }
         });
-        add(textField, BorderLayout.SOUTH);
+        bottomPanel.add(textField, BorderLayout.CENTER);
+        bottomPanel.add(exitButton, BorderLayout.EAST);
+        add(bottomPanel, BorderLayout.SOUTH);
 
         try {
             this.client = new ChatClient("127.0.0.1", 4040, this::onMessageReceived);
