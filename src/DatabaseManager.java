@@ -1,5 +1,4 @@
 import java.sql.*;
-
 public class DatabaseManager {
     private static final String URL = "jdbc:mysql://localhost:3306/ChatApp";
     private static final String USER = "root";
@@ -16,6 +15,28 @@ public class DatabaseManager {
         try (PreparedStatement stmt = connection.prepareStatement(query)) {
             stmt.setString(1, username);
             stmt.setString(2, password);
+            ResultSet rs = stmt.executeQuery();
+            return rs.next();
+        }
+    }
+
+    public boolean registerUser(String username, String password) throws SQLException {
+        if (isUsernameTaken(username)) {
+            return false;
+        }
+        String query = "INSERT INTO Users (username, password) VALUES (?, ?)";
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setString(1, username);
+            stmt.setString(2, password);
+            stmt.executeUpdate();
+            return true;
+        }
+    }
+
+    private boolean isUsernameTaken(String username) throws SQLException {
+        String query = "SELECT 1 FROM Users WHERE username = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setString(1, username);
             ResultSet rs = stmt.executeQuery();
             return rs.next();
         }

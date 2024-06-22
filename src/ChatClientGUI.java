@@ -34,50 +34,81 @@ public class ChatClientGUI extends JFrame {
             e.printStackTrace();
             JOptionPane.showMessageDialog(this, "Database connection error", "Error", JOptionPane.ERROR_MESSAGE);
             System.exit(1);
-            return; // Exit if unable to connect to the database
+            return;
         }
 
+        if (!authenticateUser()) {
+            JOptionPane.showMessageDialog(this, "Authentication failed. Exiting application.", "Error", JOptionPane.ERROR_MESSAGE);
+            System.exit(1);
+        }
+
+        initializeGUI();
+
+
+    }
+
+    private boolean authenticateUser(){
         while (true) {
-            name = JOptionPane.showInputDialog(this, "Enter your username: ", "Login", JOptionPane.PLAIN_MESSAGE);
-            String password = JOptionPane.showInputDialog(this, "Enter your password: ", "Login", JOptionPane.PLAIN_MESSAGE);
-            try {
-                if (dbManager.authenticateUser(name, password)) {
-                    break;
-                } else {
-                    JOptionPane.showMessageDialog(this, "Invalid username or password", "Login failed", JOptionPane.ERROR_MESSAGE);
+            Object[] options = {"Login", "Register", "Exit"};
+            int choice = JOptionPane.showOptionDialog(this, "Select an option", "Welcome",
+                    JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE,
+                    null, options, options[0]);
+
+            if (choice == JOptionPane.CANCEL_OPTION || choice == JOptionPane.CLOSED_OPTION) {
+                return false; // User chose to exit
+            }
+
+            JPanel panel = new JPanel(new GridLayout(3, 2));
+            JLabel userLabel = new JLabel("Username:");
+            JTextField userField = new JTextField();
+            JLabel passLabel = new JLabel("Password:");
+            JPasswordField passField = new JPasswordField();
+            panel.add(userLabel);
+            panel.add(userField);
+            panel.add(passLabel);
+            panel.add(passField);
+
+            String title = choice == JOptionPane.YES_OPTION ? "Login" : "Register";
+            int result = JOptionPane.showConfirmDialog(this, panel, title, JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+
+            if (result == JOptionPane.OK_OPTION) {
+                String username = userField.getText();
+                String password = new String(passField.getPassword());
+
+                try {
+                    if (choice == JOptionPane.YES_OPTION) {
+                        if (dbManager.authenticateUser(username, password)) {
+                            name = username;
+                            return true;
+                        } else {
+                            JOptionPane.showMessageDialog(this, "Invalid credentials. Try again.", "Error", JOptionPane.ERROR_MESSAGE);
+                        }
+                    } else if (choice == JOptionPane.NO_OPTION) {
+                        if (dbManager.registerUser(username, password)) {
+                            JOptionPane.showMessageDialog(this, "Registration successful. You can now log in.", "Success", JOptionPane.INFORMATION_MESSAGE);
+                        } else {
+                            JOptionPane.showMessageDialog(this, "Username already taken. Try again.", "Error", JOptionPane.ERROR_MESSAGE);
+                        }
+                    }
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                    JOptionPane.showMessageDialog(this, "Database error. Try again.", "Error", JOptionPane.ERROR_MESSAGE);
                 }
-            } catch (SQLException e) {
-                e.printStackTrace();
             }
         }
-        this.setTitle(name + "'s Chat Window");
+    }
 
-//        try {
-//            ResultSet chatHistory = dbManager.loadChatHistory();
-//            while (chatHistory.next()) {
-//                String sender = chatHistory.getString("sender");
-//                String message = chatHistory.getString("message");
-//                String timestamp = chatHistory.getTimestamp("timestamp").toString();
-//                appendMessage("[" + timestamp + "] " + sender + ": " + message,
-//                        sender.equals(name) ? new Color(255, 255, 204) : new Color(204, 229, 255),
-//                        sender.equals(name) ? Color.YELLOW : Color.BLUE);
-//            }
-//        } catch (SQLException e) {
-//            e.printStackTrace();
-//        }
-
+    private void initializeGUI() {
         Color backgroundColor = new Color(240, 240, 240);
         Color buttonColor = new Color(75, 75, 75);
-        Color textColor = new Color(50, 50, 50);
         Font textFont = new Font("Arial", Font.PLAIN, 14);
         Font buttonFont = new Font("Arial", Font.BOLD, 12);
 
-        //name = JOptionPane.showInputDialog(this, "Enter your name: ", "User Name", JOptionPane.PLAIN_MESSAGE);
+        this.setTitle(name + "'s Chat Window");
 
         messagePane = new JTextPane();
         messagePane.setEditable(false);
         messagePane.setBackground(backgroundColor);
-        messagePane.setForeground(textColor);
         messagePane.setFont(textFont);
 
         JScrollPane scrollPane = new JScrollPane(messagePane);
@@ -102,15 +133,14 @@ public class ChatClientGUI extends JFrame {
         sendButton.setFont(buttonFont);
         sendButton.setBackground(buttonColor);
         sendButton.setForeground(Color.WHITE);
-        sendButton.addActionListener(e -> sendMessage(name));
+        sendButton.addActionListener(e -> sendMessage());
 
         JPanel bottomPanel = new JPanel(new BorderLayout());
         bottomPanel.setBackground(backgroundColor);
         textField = new JTextField();
         textField.setFont(textFont);
-        textField.setForeground(textColor);
         textField.setBackground(backgroundColor);
-        textField.addActionListener(e -> sendMessage(name)); // Also handle send on enter key
+        textField.addActionListener(e -> sendMessage()); // Also handle send on enter key
 
         // Adding components to bottom panel
         bottomPanel.add(textField, BorderLayout.CENTER);
@@ -126,10 +156,14 @@ public class ChatClientGUI extends JFrame {
             client.startClient();
         } catch (IOException e) {
             e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Error connecting to the server", "Connection error",
-                    JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Error connecting to the server", "Connection error", JOptionPane.ERROR_MESSAGE);
             System.exit(1);
         }
+
+        loadChatHistory();
+    }
+
+    private void loadChatHistory() {
         try {
             ResultSet chatHistory = dbManager.loadChatHistory();
             while (chatHistory.next()) {
@@ -152,7 +186,7 @@ public class ChatClientGUI extends JFrame {
             appendMessage(message, backgroundColor, textcolor);
         });
     }
-    private void sendMessage(String name) {
+    private void sendMessage() {
         String message = "[" + dateFormat.format(new Date()) + "] " + name + ": " + textField.getText();
         try {
             dbManager.saveMessage(name, textField.getText());
