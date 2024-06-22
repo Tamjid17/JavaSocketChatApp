@@ -7,6 +7,8 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.IOException;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -17,11 +19,52 @@ public class ChatClientGUI extends JFrame {
     private JButton exitButton;
     private JButton sendButton;
     private String name;
+    private DatabaseManager dbManager;
     private SimpleDateFormat dateFormat = new SimpleDateFormat("HH:mm:ss");
+
     public ChatClientGUI() {
         super("Chat Application");
         setSize(400, 500);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
+
+
+        try {
+            dbManager = new DatabaseManager();
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Database connection error", "Error", JOptionPane.ERROR_MESSAGE);
+            System.exit(1);
+            return; // Exit if unable to connect to the database
+        }
+
+        while (true) {
+            name = JOptionPane.showInputDialog(this, "Enter your username: ", "Login", JOptionPane.PLAIN_MESSAGE);
+            String password = JOptionPane.showInputDialog(this, "Enter your password: ", "Login", JOptionPane.PLAIN_MESSAGE);
+            try {
+                if (dbManager.authenticateUser(name, password)) {
+                    break;
+                } else {
+                    JOptionPane.showMessageDialog(this, "Invalid username or password", "Login failed", JOptionPane.ERROR_MESSAGE);
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+        this.setTitle(name + "'s Chat Window");
+
+//        try {
+//            ResultSet chatHistory = dbManager.loadChatHistory();
+//            while (chatHistory.next()) {
+//                String sender = chatHistory.getString("sender");
+//                String message = chatHistory.getString("message");
+//                String timestamp = chatHistory.getTimestamp("timestamp").toString();
+//                appendMessage("[" + timestamp + "] " + sender + ": " + message,
+//                        sender.equals(name) ? new Color(255, 255, 204) : new Color(204, 229, 255),
+//                        sender.equals(name) ? Color.YELLOW : Color.BLUE);
+//            }
+//        } catch (SQLException e) {
+//            e.printStackTrace();
+//        }
 
         Color backgroundColor = new Color(240, 240, 240);
         Color buttonColor = new Color(75, 75, 75);
@@ -29,8 +72,7 @@ public class ChatClientGUI extends JFrame {
         Font textFont = new Font("Arial", Font.PLAIN, 14);
         Font buttonFont = new Font("Arial", Font.BOLD, 12);
 
-        name = JOptionPane.showInputDialog(this, "Enter your name: ", "User Name", JOptionPane.PLAIN_MESSAGE);
-        this.setTitle(name + "'s Chat Window");
+        //name = JOptionPane.showInputDialog(this, "Enter your name: ", "User Name", JOptionPane.PLAIN_MESSAGE);
 
         messagePane = new JTextPane();
         messagePane.setEditable(false);
@@ -88,6 +130,19 @@ public class ChatClientGUI extends JFrame {
                     JOptionPane.ERROR_MESSAGE);
             System.exit(1);
         }
+        try {
+            ResultSet chatHistory = dbManager.loadChatHistory();
+            while (chatHistory.next()) {
+                String sender = chatHistory.getString("sender");
+                String message = chatHistory.getString("message");
+                String timestamp = chatHistory.getTimestamp("timestamp").toString();
+                appendMessage("[" + timestamp + "] " + sender + ": " + message,
+                        sender.equals(name) ? new Color(255, 255, 204) : new Color(204, 229, 255),
+                        sender.equals(name) ? Color.YELLOW : Color.BLUE);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
     private void onMessageReceived(String message) {
         SwingUtilities.invokeLater(() -> {
@@ -98,7 +153,12 @@ public class ChatClientGUI extends JFrame {
         });
     }
     private void sendMessage(String name) {
-        String message = "[" + new SimpleDateFormat("HH:mm:ss").format(new Date()) + "] " + name + ": " + textField.getText();
+        String message = "[" + dateFormat.format(new Date()) + "] " + name + ": " + textField.getText();
+        try {
+            dbManager.saveMessage(name, textField.getText());
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
         client.sendMessage(message);
         textField.setText("");
     }
