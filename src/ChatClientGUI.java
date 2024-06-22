@@ -16,6 +16,7 @@ public class ChatClientGUI extends JFrame {
     private ChatClient client;
     private JButton exitButton;
     private JButton sendButton;
+    private String name;
     private SimpleDateFormat dateFormat = new SimpleDateFormat("HH:mm:ss");
     public ChatClientGUI() {
         super("Chat Application");
@@ -28,7 +29,7 @@ public class ChatClientGUI extends JFrame {
         Font textFont = new Font("Arial", Font.PLAIN, 14);
         Font buttonFont = new Font("Arial", Font.BOLD, 12);
 
-        String name = JOptionPane.showInputDialog(this, "Enter your name: ", "User Name", JOptionPane.PLAIN_MESSAGE);
+        name = JOptionPane.showInputDialog(this, "Enter your name: ", "User Name", JOptionPane.PLAIN_MESSAGE);
         this.setTitle(name + "'s Chat Window");
 
         messagePane = new JTextPane();
@@ -89,7 +90,12 @@ public class ChatClientGUI extends JFrame {
         }
     }
     private void onMessageReceived(String message) {
-        SwingUtilities.invokeLater(() -> appendMessage(message, Color.LIGHT_GRAY));
+        SwingUtilities.invokeLater(() -> {
+            String senderName = extractSenderName(message);
+            Color textcolor = Color.WHITE;
+            Color backgroundColor = senderName.equals(name) ? new Color(153, 255, 51) : Color.PINK;
+            appendMessage(message, backgroundColor, textcolor);
+        });
     }
     private void sendMessage(String name) {
         String message = "[" + new SimpleDateFormat("HH:mm:ss").format(new Date()) + "] " + name + ": " + textField.getText();
@@ -97,12 +103,12 @@ public class ChatClientGUI extends JFrame {
         textField.setText("");
     }
 
-    private void appendMessage(String message, Color backgroundColor) {
+    private void appendMessage(String message, Color backgroundColor, Color textColor) {
         try {
             StyledDocument doc = messagePane.getStyledDocument();
             Style style = messagePane.addStyle("MessageStyle", null);
             StyleConstants.setBackground(style, backgroundColor);
-            StyleConstants.setForeground(style, Color.BLACK); // Message text color
+            StyleConstants.setForeground(style, textColor);
             StyleConstants.setFontFamily(style, "Arial");
             StyleConstants.setFontSize(style, 14);
             doc.insertString(doc.getLength(), message + "\n", style);
@@ -110,6 +116,14 @@ public class ChatClientGUI extends JFrame {
         } catch (BadLocationException e) {
             e.printStackTrace();
         }
+    }
+    private String extractSenderName(String message) {
+        int startIndex = message.indexOf("] ") + 2;
+        int endIndex = message.indexOf(": ");
+        if (startIndex > 0 && endIndex > startIndex) {
+            return message.substring(startIndex, endIndex);
+        }
+        return "";
     }
 
     public static void main(String[] args) {
