@@ -4,8 +4,9 @@ import javax.swing.text.Style;
 import javax.swing.text.StyleConstants;
 import javax.swing.text.StyledDocument;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -18,15 +19,15 @@ public class ChatClientGUI extends JFrame {
     private ChatClient client;
     private JButton exitButton;
     private JButton sendButton;
+    private JButton fileButton; // New button for file sending
     private String name;
     private DatabaseManager dbManager;
     private SimpleDateFormat dateFormat = new SimpleDateFormat("HH:mm:ss");
 
     public ChatClientGUI() {
         super("Chat Application");
-        setSize(400, 500);
+        setSize(600, 500);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
-
 
         try {
             dbManager = new DatabaseManager();
@@ -43,11 +44,9 @@ public class ChatClientGUI extends JFrame {
         }
 
         initializeGUI();
-
-
     }
 
-    private boolean authenticateUser(){
+    private boolean authenticateUser() {
         while (true) {
             Object[] options = {"Login", "Register", "Exit"};
             int choice = JOptionPane.showOptionDialog(this, "Select an option", "Welcome",
@@ -135,6 +134,12 @@ public class ChatClientGUI extends JFrame {
         sendButton.setForeground(Color.WHITE);
         sendButton.addActionListener(e -> sendMessage());
 
+        fileButton = new JButton("Send File");
+        fileButton.setFont(buttonFont);
+        fileButton.setBackground(buttonColor);
+        fileButton.setForeground(Color.WHITE);
+        fileButton.addActionListener(e -> sendFile());
+
         JPanel bottomPanel = new JPanel(new BorderLayout());
         bottomPanel.setBackground(backgroundColor);
         textField = new JTextField();
@@ -144,15 +149,16 @@ public class ChatClientGUI extends JFrame {
 
         // Adding components to bottom panel
         bottomPanel.add(textField, BorderLayout.CENTER);
-        JPanel buttonPanel = new JPanel(new GridLayout(1, 2));
+        JPanel buttonPanel = new JPanel(new GridLayout(1, 3));
         buttonPanel.add(sendButton);
+        buttonPanel.add(fileButton);
         buttonPanel.add(exitButton);
         bottomPanel.add(buttonPanel, BorderLayout.EAST);
 
         add(bottomPanel, BorderLayout.SOUTH);
 
         try {
-            this.client = new ChatClient("127.0.0.1", 4040, this::onMessageReceived);
+            this.client = new ChatClient("127.0.0.1", 4040, this::onMessageReceived, this::onFileReceived);
             client.startClient();
         } catch (IOException e) {
             e.printStackTrace();
@@ -171,21 +177,53 @@ public class ChatClientGUI extends JFrame {
                 String message = chatHistory.getString("message");
                 String timestamp = chatHistory.getTimestamp("timestamp").toString();
                 appendMessage("[" + timestamp + "] " + sender + ": " + message,
-                        sender.equals(name) ? new Color(255, 255, 204) : new Color(204, 229, 255),
-                        sender.equals(name) ? Color.YELLOW : Color.BLUE);
+                        sender.equals(name) ? new Color(153, 255, 51) : Color.PINK,
+                        new Color(255, 255, 255)
+                        );
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
     }
+
     private void onMessageReceived(String message) {
         SwingUtilities.invokeLater(() -> {
             String senderName = extractSenderName(message);
-            Color textcolor = Color.WHITE;
+            Color textColor = Color.WHITE;
             Color backgroundColor = senderName.equals(name) ? new Color(153, 255, 51) : Color.PINK;
-            appendMessage(message, backgroundColor, textcolor);
+            appendMessage(message, backgroundColor, textColor);
         });
     }
+
+    private void onFileReceived(String senderName, String filePath) {
+        SwingUtilities.invokeLater(() -> {
+            String fileName = new File(filePath).getName();
+            appendMessage("[" + dateFormat.format(new Date()) + "] " + senderName + " sent a file: " + fileName,
+                    new Color(255, 255, 255), Color.CYAN);
+
+            String userHome = System.getProperty("user.home");
+            File saveDir = new File(userHome, "received_files");
+            if (!saveDir.exists()) {
+                saveDir.mkdirs();
+            }
+
+            File destinationFile = new File(saveDir, fileName);
+
+            try (FileInputStream fis = new FileInputStream(filePath);
+                 FileOutputStream fos = new FileOutputStream(destinationFile)) {
+                byte[] buffer = new byte[4096];
+                int bytesRead;
+                while ((bytesRead = fis.read(buffer)) != -1) {
+                    fos.write(buffer, 0, bytesRead);
+                }
+                JOptionPane.showMessageDialog(this, "File saved: " + destinationFile.getAbsolutePath(), "File Received", JOptionPane.INFORMATION_MESSAGE);
+            } catch (IOException e) {
+                e.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Error saving file", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+    }
+
     private void sendMessage() {
         String message = "[" + dateFormat.format(new Date()) + "] " + name + ": " + textField.getText();
         try {
@@ -197,6 +235,15 @@ public class ChatClientGUI extends JFrame {
         textField.setText("");
     }
 
+    private void sendFile() {
+        JFileChooser fileChooser = new JFileChooser();
+        int result = fileChooser.showOpenDialog(this);
+        if (result == JFileChooser.APPROVE_OPTION) {
+            File file = fileChooser.getSelectedFile();
+            client.sendFile(name, file);
+        }
+    }
+
     private void appendMessage(String message, Color backgroundColor, Color textColor) {
         try {
             StyledDocument doc = messagePane.getStyledDocument();
@@ -206,11 +253,12 @@ public class ChatClientGUI extends JFrame {
             StyleConstants.setFontFamily(style, "Arial");
             StyleConstants.setFontSize(style, 14);
             doc.insertString(doc.getLength(), message + "\n", style);
-            messagePane.setCaretPosition(doc.getLength()); // Scroll to the end
+            messagePane.setCaretPosition(doc.getLength());
         } catch (BadLocationException e) {
             e.printStackTrace();
         }
     }
+
     private String extractSenderName(String message) {
         int startIndex = message.indexOf("] ") + 2;
         int endIndex = message.indexOf(": ");
